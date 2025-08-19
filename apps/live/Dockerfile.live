@@ -19,14 +19,14 @@ RUN turbo prune live --docker
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
 RUN apk update
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache bash libc6-compat
 WORKDIR /app
 
 # First install dependencies (as they change less often)
 COPY .gitignore .gitignore
 COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/out/yarn.lock ./yarn.lock
-RUN yarn install
+RUN yarn install --frozen-lockfile --network-timeout 1000000
 
 # Build the project and its dependencies
 COPY --from=builder /app/out/full/ .
@@ -34,7 +34,7 @@ COPY turbo.json turbo.json
 
 ENV TURBO_TELEMETRY_DISABLED=1
 
-RUN yarn turbo build --filter=live
+RUN npx turbo run build --filter=live
 
 # *****************************************************************************
 # STAGE 3: Run the project

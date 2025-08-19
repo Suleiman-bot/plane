@@ -9,7 +9,7 @@ ENV INSTANCE_CHANGELOG_URL=https://sites.plane.so/pages/691ef037bcfe416a902e48cb
 # Update system packages for security
 RUN apk update && apk upgrade
 
-WORKDIR /code
+WORKDIR /plane/api
 
 RUN apk add --no-cache --upgrade \
     "libpq" \
@@ -55,4 +55,4 @@ RUN chmod -R 777 /code
 # Expose container port and run entry point script
 EXPOSE 8000
 
-CMD ["./bin/docker-entrypoint-api.sh"]
+CMD ["gunicorn", "plane.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2"]
