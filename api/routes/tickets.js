@@ -23,7 +23,25 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Helpers
-const generateTicketId = () => `INC-${new Date().toISOString().replace(/[-:T.]/g,'').slice(0,14)}-${Math.floor(1000 + Math.random() * 9000)}`;
+const CATEGORY_SHORT = {
+  'Network': 'NET',
+  'Server': 'SER',
+  'Storage': 'STOR',
+  'Power': 'PWD',
+  'Cooling': 'COOL',
+  'Security': 'SEC',
+  'Access Control': 'AC',
+  'Application': 'APP',
+  'Database': 'DBS'
+};
+
+const generateTicketId = (category) => {
+  const short = CATEGORY_SHORT[category] || 'GEN'; // fallback if not in map
+  const now = new Date();
+  const yyyymmdd = now.toISOString().slice(0,10).replace(/-/g,'');
+  const random4 = Math.floor(1000 + Math.random() * 9000);
+  return `KASI-${short}-${yyyymmdd}-INC-${random4}`;
+};
 const csvEscape = val => `"${String(val || '').replace(/"/g,'""')}"`;
 const parsePayload = req => {
   if (req.is('multipart/form-data') && req.body.payload) {
@@ -43,7 +61,7 @@ const toAttachmentUrls = filenames =>
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
-    const ticket_id = body.ticket_id || generateTicketId();
+    const ticket_id = body.ticket_id || generateTicketId(body.category);
     const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || '');
     const post_review = body.post_review ? '1' : '0';
     const sla_breach = body.sla_breach ? '1' : '0';
@@ -59,7 +77,7 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
     ].map(csvEscape).join(',') + '\n';
 
     fs.appendFileSync(TICKETS_FILE, row);
-
+    
     // history
     const historyLine = [
       ticket_id, new Date().toISOString(), 'create',
@@ -167,3 +185,4 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
 });
 
 export default router;
+
