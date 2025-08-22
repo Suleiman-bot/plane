@@ -32,6 +32,13 @@ const parsePayload = req => {
   return req.body;
 };
 
+// ✅ helper to convert attachments to URLs
+const toAttachmentUrls = filenames =>
+  filenames
+    .split(';')
+    .filter(f => f.trim())
+    .map(f => `/uploads/${f}`);
+
 // POST create ticket
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
@@ -61,7 +68,13 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
     ].map(csvEscape).join(',') + '\n';
     fs.appendFileSync(HISTORY_FILE, historyLine);
 
-    res.json({ success: true, ticket_id });
+    // ✅ respond with full ticket JSON including URLs
+    res.json({
+      success: true,
+      ticket_id,
+      ...body,
+      attachments: fileNames ? toAttachmentUrls(fileNames) : []
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'Failed to save ticket' });
@@ -82,6 +95,14 @@ router.get('/', (_, res) => {
         v = v.replace(/^"|"$/g,'').replace(/""/g,'"');
         obj[h] = v;
       });
+
+      // ✅ normalize attachments to array of URLs
+      if (obj.attachments) {
+        obj.attachments = toAttachmentUrls(obj.attachments);
+      } else {
+        obj.attachments = [];
+      }
+
       return obj;
     });
     res.json(tickets);
@@ -117,6 +138,7 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
     const lines = fs.readFileSync(TICKETS_FILE,'utf8').trim().split('\n');
     const header = lines.shift().split(',').map(h=>h.replace(/"/g,''));
     let found=false;
+    let updatedTicket = null;
     const updatedLines = lines.map(line=>{
       const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
       if(cols[0]?.replace(/^"|"$/g,'').replace(/""/g,'"')===id){
@@ -128,6 +150,7 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
         const sla_breach = body.sla_breach!==undefined?(body.sla_breach?'1':'0'):old.sla_breach;
         const fileNames = ((req.files||[]).map(f=>path.basename(f.filename)).join(';'))||old.attachments;
         const newRowObj = {...old, ...body, assigned_to, post_review, sla_breach, attachments:fileNames};
+        updatedTicket = { ...newRowObj, attachments: fileNames ? toAttachmentUrls(fileNames) : [] };
         const row = header.map(h=>csvEscape(newRowObj[h]||'')).join(',');
         return row;
       }
@@ -137,7 +160,9 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
     fs.writeFileSync(TICKETS_FILE,[header.map(csvEscape).join(',')].concat(updatedLines).join('\n')+'\n');
     const historyLine = [id,new Date().toISOString(),'update',JSON.stringify(body),body.reported_by||''].map(csvEscape).join(',')+'\n';
     fs.appendFileSync(HISTORY_FILE,historyLine);
-    res.json({success:true,ticket_id:id});
+
+    // ✅ respond with updated ticket JSON
+    res.json({ success:true, ticket_id:id, ...updatedTicket });
   }catch(err){console.error(err);res.status(500).json({error:'Failed to update ticket'});}
 });
 
