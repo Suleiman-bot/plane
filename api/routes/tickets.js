@@ -35,12 +35,32 @@ const CATEGORY_SHORT = {
   'Database': 'DBS'
 };
 
+const LOCATION_CODE = 'LOS5'; // <-- you can adjust this if needed
 const generateTicketId = (category) => {
-  const short = CATEGORY_SHORT[category] || 'GEN'; // fallback if not in map
+  const short = CATEGORY_SHORT[category] || 'GEN';
   const now = new Date();
-  const yyyymmdd = now.toISOString().slice(0,10).replace(/-/g,'');
-  const random4 = Math.floor(1000 + Math.random() * 9000);
-  return `KASI-${short}-${yyyymmdd}-INC-${random4}`;
+  const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
+
+  // Count how many tickets exist for this category
+  let count = 0;
+  if (fs.existsSync(TICKETS_FILE)) {
+    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
+    if (lines.length > 1) {
+      const header = lines.shift().split(',').map(h => h.replace(/"/g,''));
+      const catIndex = header.indexOf('category');
+      if (catIndex !== -1) {
+        lines.forEach(line => {
+          const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
+          const existingCat = cols[catIndex]?.replace(/^"|"$/g,'').replace(/""/g,'"');
+          if (existingCat === category) count++;
+        });
+      }
+    }
+  }
+
+  const sequence = String(count + 1).padStart(4, '0'); // e.g., 0001, 0002...
+
+  return `KASI-${LOCATION_CODE}-${yyyymmdd}-${short}-${sequence}`;
 };
 const csvEscape = val => `"${String(val || '').replace(/"/g,'""')}"`;
 const parsePayload = req => {
@@ -185,4 +205,5 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
 });
 
 export default router;
+
 
