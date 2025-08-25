@@ -17,7 +17,7 @@
 }
 
 # Localhost HTTP (no TLS for dev)
-http://localhost:80 {
+http://192.168.0.3:80 {
     import plane_proxy
 
     log {

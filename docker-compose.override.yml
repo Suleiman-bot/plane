@@ -1,19 +1,19 @@
 services:
   frontend:
     build:
-      context: /home/abdul/projects/ticketing-form
+      context: /home/kasi/projects/ticketing-form
       dockerfile: Dockerfile.dev
     container_name: frontend
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WDS_SOCKET_PORT=0
-      - REACT_APP_API_URL=http://localhost
+      - REACT_APP_API_URL=http://192.168.0.3
     ports:
       - "3000:3000"
     networks:
       - plane-net
     volumes:
-      - /home/abdul/projects/ticketing-form:/app
+      - /home/kasi/projects/ticketing-form:/app:cached
       - /app/node_modules
 
   api:
