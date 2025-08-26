@@ -85,11 +85,13 @@ const toAttachmentUrls = filenames =>
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
+    // Normalize building to string
+const buildingValue = typeof body.building === 'object' ? body.building.value : body.building;
     // ✅ Building validation
-if (!BUILDINGS.includes(body.building)) {
+if (!BUILDINGS.includes(buildingValue)) {
   return res.status(400).json({ error: "Invalid building value" });
 }
-    const ticket_id = body.ticket_id || generateTicketId(body.category, body.building);
+    const ticket_id = body.ticket_id || generateTicketId(body.category, buildingValue);
     const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || '');
     const post_review = body.post_review ? 'Yes' : 'No';
     const sla_breach = body.sla_breach ? 'Yes' : 'No';
@@ -98,7 +100,7 @@ if (!BUILDINGS.includes(body.building)) {
     const row = [
       ticket_id,
       body.category || '', body.sub_category || '', body.opened || '', body.reported_by || '', body.contact_info || '',
-      body.priority || '', body.building || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
+      body.priority || '', buildingValue || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
       body.time_detected || '', body.root_cause || '', body.actions_taken || '', body.status || '', assigned_to,
       body.resolution_summary || '', body.resolution_time || '', body.duration || '', post_review,
       fileNames, body.escalation_history || '', body.closed || '', sla_breach
@@ -180,8 +182,10 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
   try{
     const id = req.params.id;
     const body = parsePayload(req);
+    // Normalize building to string (if provided)
+const buildingValue = body.building ? (typeof body.building === 'object' ? body.building.value : body.building) : undefined;
     // ✅ Building validation
-if (body.building && !BUILDINGS.includes(body.building)) {
+if (buildingValue && !BUILDINGS.includes(buildingValue)) {
   return res.status(400).json({ error: "Invalid building value" });
 }
     if(!fs.existsSync(TICKETS_FILE)) return res.status(404).json({error:'No tickets file'});
@@ -204,7 +208,7 @@ const oldFiles = old.attachments ? old.attachments.split(';').filter(f => f.trim
 const mergedFiles = [...oldFiles, ...newFiles];
 const fileNames = mergedFiles.join(';');
 
-        const newRowObj = {...old, ...body, building: body.building || old.building, assigned_to, post_review, sla_breach, attachments:fileNames};
+        const newRowObj = {...old, ...body, building: buildingValue || old.building, assigned_to, post_review, sla_breach, attachments:fileNames};
         updatedTicket = { ...newRowObj, attachments: fileNames ? toAttachmentUrls(fileNames) : [] };
         const row = header.map(h=>csvEscape(newRowObj[h]||'')).join(',');
         return row;
@@ -222,6 +226,7 @@ const fileNames = mergedFiles.join(';');
 });
 
 export default router;
+
 
 
 
