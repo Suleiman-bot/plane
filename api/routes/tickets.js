@@ -84,11 +84,14 @@ const toAttachmentUrls = filenames =>
     .filter(f => f.trim())
     .map(f => `/uploads/${f}`);
 
-// POST create ticket
+// --- POST create ticket ---
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
-    const buildingValue = typeof body.building === 'object' ? body.building.value : body.building;
+
+    // Normalize building and location separately
+    const buildingValue = typeof body.building === 'object' ? body.building.value : body.building || '';
+    const locationValue = typeof body.location === 'object' ? body.location.value : body.location || '';
 
     if (!BUILDINGS.includes(buildingValue)) {
       return res.status(400).json({ error: "Invalid building value" });
@@ -103,7 +106,7 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
     const row = [
       ticket_id,
       body.category || '', body.sub_category || '', body.opened || '', body.reported_by || '', body.contact_info || '',
-      body.priority || '', buildingValue || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
+      body.priority || '', buildingValue, locationValue, body.impacted || '', body.description || '', body.detectedBy || '',
       body.time_detected || '', body.root_cause || '', body.actions_taken || '', body.status || '', assigned_to,
       body.resolution_summary || '', body.resolution_time || '', body.duration || '', post_review,
       fileNames, body.escalation_history || '', body.closed || '', sla_breach
@@ -123,6 +126,7 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
       ticket_id,
       ...body,
       building: buildingValue,
+      location: locationValue,
       attachments: fileNames ? toAttachmentUrls(fileNames) : []
     });
   } catch (err) {
@@ -131,7 +135,7 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
   }
 });
 
-// GET all tickets
+// --- GET all tickets ---
 router.get('/', (_, res) => {
   try {
     if (!fs.existsSync(TICKETS_FILE)) return res.json([]);
@@ -149,7 +153,7 @@ router.get('/', (_, res) => {
       // Normalize attachments
       obj.attachments = obj.attachments ? toAttachmentUrls(obj.attachments) : [];
 
-      // Ensure building, location, status are always present
+      // Ensure building and location are always present
       obj.building = obj.building || '';
       obj.location = obj.location || '';
       obj.status = obj.status || '';
@@ -163,7 +167,7 @@ router.get('/', (_, res) => {
   }
 });
 
-// GET ticket history
+// --- GET ticket history ---
 router.get('/:id/history', (req, res) => {
   const id = req.params.id;
   try {
@@ -183,12 +187,14 @@ router.get('/:id/history', (req, res) => {
   }
 });
 
-// PUT update ticket
+// --- PUT update ticket ---
 router.put('/:id', upload.array('attachments[]'), (req, res) => {
   try {
     const id = req.params.id;
     const body = parsePayload(req);
+
     const buildingValue = body.building ? (typeof body.building === 'object' ? body.building.value : body.building) : undefined;
+    const locationValue = body.location ? (typeof body.location === 'object' ? body.location.value : body.location) : undefined;
 
     if (buildingValue && !BUILDINGS.includes(buildingValue)) {
       return res.status(400).json({ error: "Invalid building value" });
@@ -220,6 +226,7 @@ router.put('/:id', upload.array('attachments[]'), (req, res) => {
           ...old,
           ...body,
           building: buildingValue || old.building,
+          location: locationValue || old.location,
           assigned_to,
           post_review,
           sla_breach,
