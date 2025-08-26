@@ -9,10 +9,12 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const TICKETS_FILE = path.join(DATA_DIR, 'tickets.csv');
 const HISTORY_FILE = path.join(DATA_DIR, 'ticket_history.csv');
+// --- Building options ---
+const BUILDINGS = ["LOS1", "LOS2", "LOS3", "LOS4", "LOS5"];
 
 // Ensure directories & files
 [DATA_DIR, UPLOADS_DIR].forEach(dir => !fs.existsSync(dir) && fs.mkdirSync(dir));
-if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, 'ticket_id,category,sub_category,opened,reported_by,contact_info,priority,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n');
+if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, 'ticket_id,category,sub_category,opened,reported_by,contact_info,priority,building,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n');
 if (!fs.existsSync(HISTORY_FILE)) fs.writeFileSync(HISTORY_FILE, 'ticket_id,timestamp,action,changes,editor\n');
 
 // Multer storage
@@ -35,8 +37,8 @@ const CATEGORY_SHORT = {
   'Database': 'DBS'
 };
 
-const LOCATION_CODE = 'LOS5'; // <-- you can adjust this if needed
-const generateTicketId = (category) => {
+
+const generateTicketId = (category, building) => {
   const short = CATEGORY_SHORT[category] || 'GEN';
   const now = new Date();
   const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -48,11 +50,13 @@ const generateTicketId = (category) => {
     if (lines.length > 1) {
       const header = lines.shift().split(',').map(h => h.replace(/"/g,''));
       const catIndex = header.indexOf('category');
-      if (catIndex !== -1) {
+      const bldIndex = header.indexOf('building');
+      if (catIndex !== -1 && bldIndex !== -1) {
         lines.forEach(line => {
           const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
           const existingCat = cols[catIndex]?.replace(/^"|"$/g,'').replace(/""/g,'"');
-          if (existingCat === category) count++;
+          const existingBld = cols[bldIndex]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+          if (existingCat === category && existingBld === building) count++;
         });
       }
     }
@@ -60,7 +64,7 @@ const generateTicketId = (category) => {
 
   const sequence = String(count + 1).padStart(4, '0'); // e.g., 0001, 0002...
 
-  return `KASI-${LOCATION_CODE}-${yyyymmdd}-${short}-${sequence}`;
+  return `KASI-${building}-${yyyymmdd}-${short}-${sequence}`;
 };
 const csvEscape = val => `"${String(val || '').replace(/"/g,'""')}"`;
 const parsePayload = req => {
@@ -81,16 +85,20 @@ const toAttachmentUrls = filenames =>
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
-    const ticket_id = body.ticket_id || generateTicketId(body.category);
+    // ✅ Building validation
+if (!BUILDINGS.includes(body.building)) {
+  return res.status(400).json({ error: "Invalid building value" });
+}
+    const ticket_id = body.ticket_id || generateTicketId(body.category, body.building);
     const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || '');
-    const post_review = body.post_review ? '1' : '0';
-    const sla_breach = body.sla_breach ? '1' : '0';
+    const post_review = body.post_review ? 'Yes' : 'No';
+    const sla_breach = body.sla_breach ? 'Yes' : 'No';
     const fileNames = (req.files || []).map(f => path.basename(f.filename)).join(';');
 
     const row = [
       ticket_id,
       body.category || '', body.sub_category || '', body.opened || '', body.reported_by || '', body.contact_info || '',
-      body.priority || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
+      body.priority || '', body.building || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
       body.time_detected || '', body.root_cause || '', body.actions_taken || '', body.status || '', assigned_to,
       body.resolution_summary || '', body.resolution_time || '', body.duration || '', post_review,
       fileNames, body.escalation_history || '', body.closed || '', sla_breach
@@ -172,6 +180,10 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
   try{
     const id = req.params.id;
     const body = parsePayload(req);
+    // ✅ Building validation
+if (body.building && !BUILDINGS.includes(body.building)) {
+  return res.status(400).json({ error: "Invalid building value" });
+}
     if(!fs.existsSync(TICKETS_FILE)) return res.status(404).json({error:'No tickets file'});
     const lines = fs.readFileSync(TICKETS_FILE,'utf8').trim().split('\n');
     const header = lines.shift().split(',').map(h=>h.replace(/"/g,''));
@@ -184,10 +196,15 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
         const old={};
         header.forEach((h,i)=>{ old[h]=cols[i]?.replace(/^"|"$/g,'').replace(/""/g,'"')||''; });
         const assigned_to = Array.isArray(body.assigned_to)?body.assigned_to.join(';'):(body.assigned_to||old.assigned_to);
-        const post_review = body.post_review!==undefined?(body.post_review?'1':'0'):old.post_review;
-        const sla_breach = body.sla_breach!==undefined?(body.sla_breach?'1':'0'):old.sla_breach;
-        const fileNames = ((req.files||[]).map(f=>path.basename(f.filename)).join(';'))||old.attachments;
-        const newRowObj = {...old, ...body, assigned_to, post_review, sla_breach, attachments:fileNames};
+        const post_review = body.post_review!==undefined?(body.post_review?'Yes':'No'):old.post_review;
+        const sla_breach = body.sla_breach!==undefined?(body.sla_breach?'Yes':'No'):old.sla_breach;
+       // ✅ Merge new + old attachments
+const newFiles = (req.files || []).map(f => path.basename(f.filename));
+const oldFiles = old.attachments ? old.attachments.split(';').filter(f => f.trim()) : [];
+const mergedFiles = [...oldFiles, ...newFiles];
+const fileNames = mergedFiles.join(';');
+
+        const newRowObj = {...old, ...body, building: body.building || old.building, assigned_to, post_review, sla_breach, attachments:fileNames};
         updatedTicket = { ...newRowObj, attachments: fileNames ? toAttachmentUrls(fileNames) : [] };
         const row = header.map(h=>csvEscape(newRowObj[h]||'')).join(',');
         return row;
@@ -205,5 +222,6 @@ router.put('/:id', upload.array('attachments[]'), (req,res)=>{
 });
 
 export default router;
+
 
 
