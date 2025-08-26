@@ -9,13 +9,18 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 const TICKETS_FILE = path.join(DATA_DIR, 'tickets.csv');
 const HISTORY_FILE = path.join(DATA_DIR, 'ticket_history.csv');
+
 // --- Building options ---
 const BUILDINGS = ["LOS1", "LOS2", "LOS3", "LOS4", "LOS5"];
 
 // Ensure directories & files
 [DATA_DIR, UPLOADS_DIR].forEach(dir => !fs.existsSync(dir) && fs.mkdirSync(dir));
-if (!fs.existsSync(TICKETS_FILE)) fs.writeFileSync(TICKETS_FILE, 'ticket_id,category,sub_category,opened,reported_by,contact_info,priority,building,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n');
-if (!fs.existsSync(HISTORY_FILE)) fs.writeFileSync(HISTORY_FILE, 'ticket_id,timestamp,action,changes,editor\n');
+if (!fs.existsSync(TICKETS_FILE)) {
+  fs.writeFileSync(TICKETS_FILE, 'ticket_id,category,sub_category,opened,reported_by,contact_info,priority,building,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n');
+}
+if (!fs.existsSync(HISTORY_FILE)) {
+  fs.writeFileSync(HISTORY_FILE, 'ticket_id,timestamp,action,changes,editor\n');
+}
 
 // Multer storage
 const storage = multer.diskStorage({
@@ -37,24 +42,22 @@ const CATEGORY_SHORT = {
   'Database': 'DBS'
 };
 
-
 const generateTicketId = (category, building) => {
   const short = CATEGORY_SHORT[category] || 'GEN';
   const now = new Date();
   const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
 
-  // Count how many tickets exist for this category
   let count = 0;
   if (fs.existsSync(TICKETS_FILE)) {
     const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
     if (lines.length > 1) {
-      const header = lines.shift().split(',').map(h => h.replace(/"/g,''));
+      const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
       const catIndex = header.indexOf('category');
       const bldIndex = header.indexOf('building');
       if (catIndex !== -1 && bldIndex !== -1) {
         lines.forEach(line => {
           const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
-          const existingCat = cols[catIndex]?.replace(/^"|"$/g,'').replace(/""/g,'"');
+          const existingCat = cols[catIndex]?.replace(/^"|"$/g, '').replace(/""/g, '"');
           const existingBld = cols[bldIndex]?.replace(/^"|"$/g, '').replace(/""/g, '"');
           if (existingCat === category && existingBld === building) count++;
         });
@@ -62,11 +65,12 @@ const generateTicketId = (category, building) => {
     }
   }
 
-  const sequence = String(count + 1).padStart(4, '0'); // e.g., 0001, 0002...
-
+  const sequence = String(count + 1).padStart(4, '0');
   return `KASI-${building}-${yyyymmdd}-${short}-${sequence}`;
 };
-const csvEscape = val => `"${String(val || '').replace(/"/g,'""')}"`;
+
+const csvEscape = val => `"${String(val || '').replace(/"/g, '""')}"`;
+
 const parsePayload = req => {
   if (req.is('multipart/form-data') && req.body.payload) {
     try { return JSON.parse(req.body.payload); } catch { return req.body; }
@@ -74,7 +78,6 @@ const parsePayload = req => {
   return req.body;
 };
 
-// ✅ helper to convert attachments to URLs
 const toAttachmentUrls = filenames =>
   filenames
     .split(';')
@@ -85,12 +88,12 @@ const toAttachmentUrls = filenames =>
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
-    // Normalize building to string
-const buildingValue = typeof body.building === 'object' ? body.building.value : body.building;
-    // ✅ Building validation
-if (!BUILDINGS.includes(buildingValue)) {
-  return res.status(400).json({ error: "Invalid building value" });
-}
+    const buildingValue = typeof body.building === 'object' ? body.building.value : body.building;
+
+    if (!BUILDINGS.includes(buildingValue)) {
+      return res.status(400).json({ error: "Invalid building value" });
+    }
+
     const ticket_id = body.ticket_id || generateTicketId(body.category, buildingValue);
     const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || '');
     const post_review = body.post_review ? 'Yes' : 'No';
@@ -107,8 +110,7 @@ if (!BUILDINGS.includes(buildingValue)) {
     ].map(csvEscape).join(',') + '\n';
 
     fs.appendFileSync(TICKETS_FILE, row);
-    
-    // history
+
     const historyLine = [
       ticket_id, new Date().toISOString(), 'create',
       JSON.stringify({ ...body, attachments: fileNames }),
@@ -116,11 +118,11 @@ if (!BUILDINGS.includes(buildingValue)) {
     ].map(csvEscape).join(',') + '\n';
     fs.appendFileSync(HISTORY_FILE, historyLine);
 
-    // ✅ respond with full ticket JSON including URLs
     res.json({
       success: true,
       ticket_id,
       ...body,
+      building: buildingValue,
       attachments: fileNames ? toAttachmentUrls(fileNames) : []
     });
   } catch (err) {
@@ -134,22 +136,23 @@ router.get('/', (_, res) => {
   try {
     if (!fs.existsSync(TICKETS_FILE)) return res.json([]);
     const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
-    const header = lines.shift().split(',').map(h => h.replace(/"/g,''));
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
     const tickets = lines.map(line => {
       const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
       const obj = {};
       header.forEach((h, i) => {
         let v = cols[i] || '';
-        v = v.replace(/^"|"$/g,'').replace(/""/g,'"');
+        v = v.replace(/^"|"$/g, '').replace(/""/g, '"');
         obj[h] = v;
       });
 
-      // ✅ normalize attachments to array of URLs
-      if (obj.attachments) {
-        obj.attachments = toAttachmentUrls(obj.attachments);
-      } else {
-        obj.attachments = [];
-      }
+      // Normalize attachments
+      obj.attachments = obj.attachments ? toAttachmentUrls(obj.attachments) : [];
+
+      // Ensure building, location, status are always present
+      obj.building = obj.building || '';
+      obj.location = obj.location || '';
+      obj.status = obj.status || '';
 
       return obj;
     });
@@ -166,67 +169,85 @@ router.get('/:id/history', (req, res) => {
   try {
     if (!fs.existsSync(HISTORY_FILE)) return res.json([]);
     const lines = fs.readFileSync(HISTORY_FILE, 'utf8').trim().split('\n');
-    const header = lines.shift().split(',').map(h => h.replace(/"/g,''));
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
     const entries = lines.map(line => {
       const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
       const obj = {};
-      header.forEach((h,i)=>{ obj[h]=cols[i]?.replace(/^"|"$/g,'').replace(/""/g,'"')||''; });
+      header.forEach((h, i) => { obj[h] = cols[i]?.replace(/^"|"$/g, '').replace(/""/g, '"') || ''; });
       return obj;
-    }).filter(e=>e.ticket_id===id);
+    }).filter(e => e.ticket_id === id);
     res.json(entries);
-  } catch(err){ console.error(err); res.status(500).json({error:'Failed to read history'}); }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to read history' });
+  }
 });
 
 // PUT update ticket
-router.put('/:id', upload.array('attachments[]'), (req,res)=>{
-  try{
+router.put('/:id', upload.array('attachments[]'), (req, res) => {
+  try {
     const id = req.params.id;
     const body = parsePayload(req);
-    // Normalize building to string (if provided)
-const buildingValue = body.building ? (typeof body.building === 'object' ? body.building.value : body.building) : undefined;
-    // ✅ Building validation
-if (buildingValue && !BUILDINGS.includes(buildingValue)) {
-  return res.status(400).json({ error: "Invalid building value" });
-}
-    if(!fs.existsSync(TICKETS_FILE)) return res.status(404).json({error:'No tickets file'});
-    const lines = fs.readFileSync(TICKETS_FILE,'utf8').trim().split('\n');
-    const header = lines.shift().split(',').map(h=>h.replace(/"/g,''));
-    let found=false;
-    let updatedTicket = null;
-    const updatedLines = lines.map(line=>{
-      const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
-      if(cols[0]?.replace(/^"|"$/g,'').replace(/""/g,'"')===id){
-        found=true;
-        const old={};
-        header.forEach((h,i)=>{ old[h]=cols[i]?.replace(/^"|"$/g,'').replace(/""/g,'"')||''; });
-        const assigned_to = Array.isArray(body.assigned_to)?body.assigned_to.join(';'):(body.assigned_to||old.assigned_to);
-        const post_review = body.post_review!==undefined?(body.post_review?'Yes':'No'):old.post_review;
-        const sla_breach = body.sla_breach!==undefined?(body.sla_breach?'Yes':'No'):old.sla_breach;
-       // ✅ Merge new + old attachments
-const newFiles = (req.files || []).map(f => path.basename(f.filename));
-const oldFiles = old.attachments ? old.attachments.split(';').filter(f => f.trim()) : [];
-const mergedFiles = [...oldFiles, ...newFiles];
-const fileNames = mergedFiles.join(';');
+    const buildingValue = body.building ? (typeof body.building === 'object' ? body.building.value : body.building) : undefined;
 
-        const newRowObj = {...old, ...body, building: buildingValue || old.building, assigned_to, post_review, sla_breach, attachments:fileNames};
-        updatedTicket = { ...newRowObj, attachments: fileNames ? toAttachmentUrls(fileNames) : [] };
-        const row = header.map(h=>csvEscape(newRowObj[h]||'')).join(',');
-        return row;
+    if (buildingValue && !BUILDINGS.includes(buildingValue)) {
+      return res.status(400).json({ error: "Invalid building value" });
+    }
+
+    if (!fs.existsSync(TICKETS_FILE)) return res.status(404).json({ error: 'No tickets file' });
+    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
+    let found = false;
+    let updatedTicket = null;
+
+    const updatedLines = lines.map(line => {
+      const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
+      if (cols[0]?.replace(/^"|"$/g, '').replace(/""/g, '"') === id) {
+        found = true;
+        const old = {};
+        header.forEach((h, i) => { old[h] = cols[i]?.replace(/^"|"$/g, '').replace(/""/g, '"') || ''; });
+
+        const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || old.assigned_to);
+        const post_review = body.post_review !== undefined ? (body.post_review ? 'Yes' : 'No') : old.post_review;
+        const sla_breach = body.sla_breach !== undefined ? (body.sla_breach ? 'Yes' : 'No') : old.sla_breach;
+
+        const newFiles = (req.files || []).map(f => path.basename(f.filename));
+        const oldFiles = old.attachments ? old.attachments.split(';').filter(f => f.trim()) : [];
+        const mergedFiles = [...oldFiles, ...newFiles];
+        const fileNames = mergedFiles.join(';');
+
+        const newRowObj = {
+          ...old,
+          ...body,
+          building: buildingValue || old.building,
+          assigned_to,
+          post_review,
+          sla_breach,
+          attachments: fileNames
+        };
+
+        updatedTicket = {
+          ...newRowObj,
+          attachments: fileNames ? toAttachmentUrls(fileNames) : []
+        };
+
+        return header.map(h => csvEscape(newRowObj[h] || '')).join(',');
       }
       return line;
     });
-    if(!found) return res.status(404).json({error:'Ticket not found'});
-    fs.writeFileSync(TICKETS_FILE,[header.map(csvEscape).join(',')].concat(updatedLines).join('\n')+'\n');
-    const historyLine = [id,new Date().toISOString(),'update',JSON.stringify(body),body.reported_by||''].map(csvEscape).join(',')+'\n';
-    fs.appendFileSync(HISTORY_FILE,historyLine);
 
-    // ✅ respond with updated ticket JSON
-    res.json({ success:true, ticket_id:id, ...updatedTicket });
-  }catch(err){console.error(err);res.status(500).json({error:'Failed to update ticket'});}
+    if (!found) return res.status(404).json({ error: 'Ticket not found' });
+
+    fs.writeFileSync(TICKETS_FILE, [header.map(csvEscape).join(',')].concat(updatedLines).join('\n') + '\n');
+
+    const historyLine = [id, new Date().toISOString(), 'update', JSON.stringify(body), body.reported_by || ''].map(csvEscape).join(',') + '\n';
+    fs.appendFileSync(HISTORY_FILE, historyLine);
+
+    res.json({ success: true, ticket_id: id, ...updatedTicket });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update ticket' });
+  }
 });
 
 export default router;
-
-
-
-
