@@ -19,6 +19,13 @@ const formatDateTime = (input) => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
 };
 
+const BUILDING_CODES = {
+  LOS1: 'LOS1',
+  LOS2: 'LOS2',
+  LOS3: 'LOS3',
+  LOS4: 'LOS4',
+  LOS5: 'LOS5'
+};
 
 const router = express.Router();
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -58,13 +65,13 @@ const CATEGORY_SHORT = {
   'Database': 'DBS'
 };
 
-const LOCATION_CODE = 'LOS5'; // <-- adjust if needed
-const generateTicketId = (category) => {
+const generateTicketId = (category, building) => {
   const short = CATEGORY_SHORT[category] || 'GEN';
   const now = new Date();
   const yyyymmdd = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const buildingCode = BUILDING_CODES[building] || 'LOS5'; // fallback
 
-  // Count how many tickets exist for this category
+  // Count existing tickets for this category
   let count = 0;
   if (fs.existsSync(TICKETS_FILE)) {
     const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
@@ -82,7 +89,7 @@ const generateTicketId = (category) => {
   }
 
   const sequence = String(count + 1).padStart(4, '0');
-  return `KASI-${LOCATION_CODE}-${yyyymmdd}-${short}-${sequence}`;
+  return `KASI-${buildingCode}-${yyyymmdd}-${short}-${sequence}`;
 };
 
 const csvEscape = val => `"${String(val || '').replace(/"/g, '""')}"`;
@@ -104,7 +111,7 @@ const toAttachmentUrls = filenames =>
 router.post('/', upload.array('attachments[]'), (req, res) => {
   try {
     const body = parsePayload(req);
-    const ticket_id = body.ticket_id || generateTicketId(body.category);
+    const ticket_id = body.ticket_id || generateTicketId(body.category, body.building);
     const assigned_to = Array.isArray(body.assigned_to) ? body.assigned_to.join(';') : (body.assigned_to || '');
     const post_review = body.post_review ? 'Yes' : 'No';
     const sla_breach = body.sla_breach ? 'Yes' : 'No';
@@ -256,4 +263,5 @@ router.put('/:id', upload.array('attachments[]'), (req, res) => {
 });
 
 export default router;
+
 
