@@ -4,6 +4,22 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 
+// Format ISO string or Date object to "YYYY-MM-DD HH:mm:ss.SSS"
+const formatDateTime = (input) => {
+  const d = input instanceof Date ? input : new Date(input);
+  if (isNaN(d)) return '';
+  const pad = (num, size = 2) => String(num).padStart(size, '0');
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+  const seconds = pad(d.getSeconds());
+  const ms = pad(d.getMilliseconds(), 3);
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+};
+
+
 const router = express.Router();
 const DATA_DIR = path.join(process.cwd(), 'data');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
@@ -94,23 +110,46 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
     const sla_breach = body.sla_breach ? 'Yes' : 'No';
     const fileNames = (req.files || []).map(f => path.basename(f.filename)).join(';');
 
-    const row = [
-      ticket_id,
-      body.category || '', body.sub_category || '', body.opened || '', body.reported_by || '', body.contact_info || '',
-      body.priority || '', body.building || '', body.location || '', body.impacted || '', body.description || '', body.detectedBy || '',
-      body.time_detected || '', body.root_cause || '', body.actions_taken || '', body.status || '', assigned_to,
-      body.resolution_summary || '', body.resolution_time || '', body.duration || '', post_review,
-      fileNames, body.escalation_history || '', body.closed || '', sla_breach
-    ].map(csvEscape).join(',') + '\n';
+   const row = [
+  ticket_id,
+  body.category || '',
+  body.sub_category || '',
+  formatDateTime(body.opened || new Date()),  // opened
+  body.reported_by || '',
+  body.contact_info || '',
+  body.priority || '',
+  body.building || '',
+  body.location || '',
+  body.impacted || '',
+  body.description || '',
+  body.detectedBy || '',
+  formatDateTime(body.time_detected),
+  body.root_cause || '',
+  body.actions_taken || '',
+  body.status || '',
+  assigned_to,
+  body.resolution_summary || '',
+  formatDateTime(body.resolution_time),
+  body.duration || '',
+  post_review,
+  fileNames,
+  body.escalation_history || '',
+  formatDateTime(body.closed),
+  sla_breach
+].map(csvEscape).join(',') + '\n';
+
 
     fs.appendFileSync(TICKETS_FILE, row);
 
     // history
-    const historyLine = [
-      ticket_id, new Date().toISOString(), 'create',
-      JSON.stringify({ ...body, attachments: fileNames }),
-      body.reported_by || ''
-    ].map(csvEscape).join(',') + '\n';
+const historyLine = [
+  ticket_id,
+  formatDateTime(new Date()),
+  'create',
+  JSON.stringify({ ...body, attachments: fileNames }),
+  body.reported_by || ''
+].map(csvEscape).join(',') + '\n';
+
     fs.appendFileSync(HISTORY_FILE, historyLine);
 
     res.json({
@@ -203,7 +242,13 @@ router.put('/:id', upload.array('attachments[]'), (req, res) => {
 
     if (!found) return res.status(404).json({ error: 'Ticket not found' });
     fs.writeFileSync(TICKETS_FILE, [header.map(csvEscape).join(',')].concat(updatedLines).join('\n') + '\n');
-    const historyLine = [id, new Date().toISOString(), 'update', JSON.stringify(body), body.reported_by || ''].map(csvEscape).join(',') + '\n';
+    const historyLine = [
+  id,
+  formatDateTime(new Date()),
+  'update',
+  JSON.stringify(body),
+  body.reported_by || ''
+].map(csvEscape).join(',') + '\n';
     fs.appendFileSync(HISTORY_FILE, historyLine);
 
     res.json({ success: true, ticket_id: id, ...updatedTicket });
@@ -211,3 +256,4 @@ router.put('/:id', upload.array('attachments[]'), (req, res) => {
 });
 
 export default router;
+
