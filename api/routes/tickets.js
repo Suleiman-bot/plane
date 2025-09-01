@@ -358,29 +358,23 @@ if (ticket.attachments) {
     doc.moveDown(0.5);
 
     for (const att of attachments) {
-      const filePath = path.join(UPLOADS_DIR, att);
-      if (isImage(att)) {
-        // Embed image directly on a new page
-        doc.addPage();
-        doc.fontSize(14).text(`Image: ${att}`, { underline: true });
-        try {
-          doc.image(filePath, { fit: [500, 400], align: 'center' });
-        } catch (err) {
-          doc.text(`Failed to embed image: ${err.message}`);
-        }
-      } else {
-        // Attach as a downloadable file
-        try {
-          doc.file(filePath, { name: att });
-          doc.fontSize(12).text(`Attached file: ${att}`);
-        } catch (err) {
-          doc.fontSize(12).text(`Failed to attach file: ${att}`);
-        }
-      }
-      doc.moveDown();
+  const filePath = path.join(UPLOADS_DIR, att);
+  if (isImage(att)) {
+    // Embed image directly on a new page
+    doc.addPage();
+    doc.fontSize(14).text(`Image: ${att}`, { underline: true });
+    try {
+      doc.image(filePath, { fit: [500, 400], align: 'center' });
+    } catch (err) {
+      doc.text(`Failed to embed image: ${err.message}`);
     }
+  } else {
+    // Non-image files → list them only; frontend handles download
+    doc.fontSize(12).text(`Attached file: ${att} (download via frontend)`);
   }
+  doc.moveDown();
 }
+
 
     doc.end();
   } catch (err) {
@@ -390,6 +384,7 @@ if (ticket.attachments) {
 });
 
 export default router;
+
 
 
 
