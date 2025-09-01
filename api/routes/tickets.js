@@ -38,7 +38,7 @@ const HISTORY_FILE = path.join(DATA_DIR, 'ticket_history.csv');
 if (!fs.existsSync(TICKETS_FILE)) {
   fs.writeFileSync(
     TICKETS_FILE,
-    'ticket_id,category,sub_category,opened,reported_by,contact_info,priority,building,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n'
+    'ticket_id,category,sub_category,opened,reported_by,priority,building,location,impacted,description,detectedBy,time_detected,root_cause,actions_taken,status,assigned_to,resolution_summary,resolution_time,duration,post_review,attachments,escalation_history,closed,sla_breach\n'
   );
 }
 if (!fs.existsSync(HISTORY_FILE)) {
@@ -117,33 +117,33 @@ router.post('/', upload.array('attachments[]'), (req, res) => {
     const sla_breach = body.sla_breach ? 'Yes' : 'No';
     const fileNames = (req.files || []).map(f => path.basename(f.filename)).join(';');
 
-   const row = [
+const row = [
   ticket_id,
   body.category || '',
   body.sub_category || '',
   formatDateTime(body.opened || new Date()),  // opened
   body.reported_by || '',
-  body.contact_info || '',
   body.priority || '',
   body.building || '',
   body.location || '',
   body.impacted || '',
   body.description || '',
   body.detectedBy || '',
-  formatDateTime(body.time_detected),
+  formatDateTime(body.time_detected || ''),   // safe check
   body.root_cause || '',
   body.actions_taken || '',
-  body.status || '',
+  body.status || 'Open',
   assigned_to,
   body.resolution_summary || '',
-  formatDateTime(body.resolution_time),
+  formatDateTime(body.resolution_time || ''), // safe check
   body.duration || '',
   post_review,
   fileNames,
   body.escalation_history || '',
-  formatDateTime(body.closed),
+  formatDateTime(body.closed || ''),          // safe check
   sla_breach
 ].map(csvEscape).join(',') + '\n';
+
 
 
     fs.appendFileSync(TICKETS_FILE, row);
@@ -198,6 +198,37 @@ router.get('/', (_, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to read tickets' });
+  }
+});
+
+// GET single ticket by ID
+router.get('/:id', (req, res) => {
+  const ticketId = req.params.id;
+  try {
+    if (!fs.existsSync(TICKETS_FILE)) return res.status(404).json({ error: 'No tickets file' });
+    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
+    const cols = lines
+      .map(line => line.match(/("([^"]|"")*"|[^,]+)/g) || [])
+      .find(c => c[0]?.replace(/^"|"$/g, '').replace(/""/g, '"') === ticketId);
+
+    if (!cols) return res.status(404).json({ error: 'Ticket not found' });
+
+    const ticket = {};
+    header.forEach((h, i) => {
+      let v = cols[i] || '';
+      v = v.replace(/^"|"$/g, '').replace(/""/g, '"');
+      ticket[h] = v;
+    });
+
+    ticket.attachments = ticket.attachments
+      ? toAttachmentUrls(ticket.attachments)
+      : [];
+
+    res.json(ticket);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to read ticket' });
   }
 });
 
@@ -262,6 +293,18 @@ router.put('/:id', upload.array('attachments[]'), (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to update ticket' }); }
 });
 
+// Export all tickets as CSV
+router.get('/export/all', (_, res) => {
+  try {
+    if (!fs.existsSync(TICKETS_FILE)) return res.status(404).send('No tickets found');
+    res.download(TICKETS_FILE, 'tickets.csv');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to export tickets');
+  }
+});
+
 export default router;
+
 
 
