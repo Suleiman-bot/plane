@@ -374,9 +374,9 @@ if (ticket.attachments) {
   }
   doc.moveDown();
 }
-
-
-    doc.end();
+}
+}
+ doc.end();
   } catch (err) {
     console.error(err);
     res.status(500).send('Failed to generate PDF');
@@ -384,6 +384,7 @@ if (ticket.attachments) {
 });
 
 export default router;
+
 
 
 
