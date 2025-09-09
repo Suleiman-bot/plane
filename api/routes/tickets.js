@@ -206,6 +206,79 @@ router.get('/', (_, res) => {
   }
 });
 
+// Add this endpoint at the bottom, before `export default router;`
+router.get('/:id/download', (req, res) => {
+  const ticketId = req.params.id;
+  try {
+    if (!fs.existsSync(TICKETS_FILE)) return res.status(404).send('Tickets file not found');
+
+    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
+    const cols = lines
+      .map(line => line.match(/("([^"]|"")*"|[^,]+)/g) || [])
+      .find(c => c[0]?.replace(/^"|"$/g, '').replace(/""/g, '"') === ticketId);
+
+    if (!cols) return res.status(404).send('Ticket not found');
+
+    const ticket = {};
+    header.forEach((h, i) => {
+      let v = cols[i] || '';
+      v = v.replace(/^"|"$/g, '').replace(/""/g, '"');
+      ticket[h] = v;
+    });
+
+    // PDF generation
+    const doc = new PDFDocument({ margin: 50 });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=${ticketId}.pdf`);
+
+    doc.pipe(res);
+
+    doc.fontSize(20).text(`Ticket ID: ${ticket.ticket_id}`, { underline: true });
+    doc.moveDown();
+
+    // Loop through fields
+    for (const key of Object.keys(ticket)) {
+      if (key !== 'ticket_id' && key !== 'attachments') {
+        doc.fontSize(12).text(`${key}: ${ticket[key]}`);
+        doc.moveDown(0.5);
+      }
+    }
+
+// Attachments
+if (ticket.attachments) {
+  const attachments = ticket.attachments.split(';').filter(f => f);
+  if (attachments.length) {
+    doc.addPage();
+    doc.fontSize(16).text('Attachments:', { underline: true });
+    doc.moveDown(0.5);
+
+    for (const att of attachments) {
+  const filePath = path.join(UPLOADS_DIR, att);
+  if (isImage(att)) {
+    // Embed image directly on a new page
+    doc.addPage();
+    doc.fontSize(14).text(`Image: ${att}`, { underline: true });
+    try {
+      doc.image(filePath, { fit: [500, 400], align: 'center' });
+    } catch (err) {
+      doc.text(`Failed to embed image: ${err.message}`);
+    }
+  } else {
+    // Non-image files → list them only; frontend handles download
+    doc.fontSize(12).text(`Attached file: ${att} (download via frontend)`);
+  }
+  doc.moveDown();
+}
+}
+}
+ doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Failed to generate PDF');
+  }
+});
+
 // GET single ticket by ID
 router.get('/:id', (req, res) => {
   const ticketId = req.params.id;
@@ -309,84 +382,5 @@ router.get('/export/all', (_, res) => {
   }
 });
 
-
-// Add this endpoint at the bottom, before `export default router;`
-router.get('/:id/download', (req, res) => {
-  const ticketId = req.params.id;
-  try {
-    if (!fs.existsSync(TICKETS_FILE)) return res.status(404).send('Tickets file not found');
-
-    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
-    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
-    const cols = lines
-      .map(line => line.match(/("([^"]|"")*"|[^,]+)/g) || [])
-      .find(c => c[0]?.replace(/^"|"$/g, '').replace(/""/g, '"') === ticketId);
-
-    if (!cols) return res.status(404).send('Ticket not found');
-
-    const ticket = {};
-    header.forEach((h, i) => {
-      let v = cols[i] || '';
-      v = v.replace(/^"|"$/g, '').replace(/""/g, '"');
-      ticket[h] = v;
-    });
-
-    // PDF generation
-    const doc = new PDFDocument({ margin: 50 });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=${ticketId}.pdf`);
-
-    doc.pipe(res);
-
-    doc.fontSize(20).text(`Ticket ID: ${ticket.ticket_id}`, { underline: true });
-    doc.moveDown();
-
-    // Loop through fields
-    for (const key of Object.keys(ticket)) {
-      if (key !== 'ticket_id' && key !== 'attachments') {
-        doc.fontSize(12).text(`${key}: ${ticket[key]}`);
-        doc.moveDown(0.5);
-      }
-    }
-
-// Attachments
-if (ticket.attachments) {
-  const attachments = ticket.attachments.split(';').filter(f => f);
-  if (attachments.length) {
-    doc.addPage();
-    doc.fontSize(16).text('Attachments:', { underline: true });
-    doc.moveDown(0.5);
-
-    for (const att of attachments) {
-  const filePath = path.join(UPLOADS_DIR, att);
-  if (isImage(att)) {
-    // Embed image directly on a new page
-    doc.addPage();
-    doc.fontSize(14).text(`Image: ${att}`, { underline: true });
-    try {
-      doc.image(filePath, { fit: [500, 400], align: 'center' });
-    } catch (err) {
-      doc.text(`Failed to embed image: ${err.message}`);
-    }
-  } else {
-    // Non-image files → list them only; frontend handles download
-    doc.fontSize(12).text(`Attached file: ${att} (download via frontend)`);
-  }
-  doc.moveDown();
-}
-}
-}
- doc.end();
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Failed to generate PDF');
-  }
-});
-
 export default router;
-
-
-
-
-
 
