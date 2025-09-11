@@ -250,17 +250,14 @@ function normalizeDateTime(value) {
   return value;
 }
 
-// Loop through fields
+// Loop through fields (skip ticket_id, attachments and reported_by)
 for (const key of Object.keys(ticket)) {
-  // Skip unwanted fields
-  if (['ticket_id', 'attachments', 'reported_by'].includes(key)) continue;
-
-  const val = normalizeDateTime(ticket[key]);
-  doc.fontSize(12).text(`${key}: ${val}`);
-  doc.moveDown(0.5);
+  if (key !== 'ticket_id' && key !== 'attachments' && key !== 'reported_by') {
+    const val = normalizeDateTime(ticket[key]);
+    doc.fontSize(12).text(`${key}: ${val}`);
+    doc.moveDown(0.5);
+  }
 }
-}
-
 
 // Attachments
 if (ticket.attachments) {
@@ -400,6 +397,7 @@ router.get('/export/all', (_, res) => {
 });
 
 export default router;
+
 
 
 
