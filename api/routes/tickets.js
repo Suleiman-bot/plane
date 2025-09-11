@@ -252,11 +252,13 @@ function normalizeDateTime(value) {
 
 // Loop through fields
 for (const key of Object.keys(ticket)) {
-  if (key !== 'ticket_id' && key !== 'attachments') {
-    const val = normalizeDateTime(ticket[key]);
-    doc.fontSize(12).text(`${key}: ${val}`);
-    doc.moveDown(0.5);
-  }
+  // Skip unwanted fields
+  if (['ticket_id', 'attachments', 'reported_by'].includes(key)) continue;
+
+  const val = normalizeDateTime(ticket[key]);
+  doc.fontSize(12).text(`${key}: ${val}`);
+  doc.moveDown(0.5);
+}
 }
 
 
@@ -398,5 +400,6 @@ router.get('/export/all', (_, res) => {
 });
 
 export default router;
+
 
 
