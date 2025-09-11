@@ -407,7 +407,56 @@ router.get('/export/all', (_, res) => {
   }
 });
 
+// DELETE a ticket by ID
+router.delete('/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+
+    if (!fs.existsSync(TICKETS_FILE)) {
+      return res.status(404).json({ error: 'No tickets file' });
+    }
+
+    // Read all lines
+    const lines = fs.readFileSync(TICKETS_FILE, 'utf8').trim().split('\n');
+    const header = lines.shift().split(',').map(h => h.replace(/"/g, ''));
+
+    // Keep everything except the ticket we’re deleting
+    const remaining = lines.filter(line => {
+      const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
+      const tid = cols[0]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+      return tid !== id;
+    });
+
+    if (remaining.length === lines.length) {
+      // no change means ticket not found
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Write updated file back
+    fs.writeFileSync(
+      TICKETS_FILE,
+      [header.map(h => `"${h}"`).join(',')].concat(remaining).join('\n') + '\n'
+    );
+
+    // Write to history log
+    const historyLine = [
+      id,
+      formatDateTime(new Date()),
+      'delete',
+      '{}',
+      req.body.editor || '' // optional editor name
+    ].map(csvEscape).join(',') + '\n';
+    fs.appendFileSync(HISTORY_FILE, historyLine);
+
+    res.json({ success: true, message: `Ticket ${id} deleted.` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete ticket' });
+  }
+});
+
 export default router;
+
 
 
 
