@@ -253,8 +253,12 @@ function normalizeDateTime(value) {
 // Helper to make keys look nice
 function prettyKey(key) {
   return key
-    .replace(/_/g, ' ')              // underscores → spaces
-    .replace(/\b\w/g, c => c.toUpperCase()); // capitalize each word
+    .split('_')                          // split words at underscores
+    .map(word => {
+      if (word.toLowerCase() === "sla") return "SLA"; // special case
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
 }
 
 // Loop through fields (skip ticket_id, attachments, reported_by)
@@ -404,6 +408,7 @@ router.get('/export/all', (_, res) => {
 });
 
 export default router;
+
 
 
 
