@@ -250,11 +250,18 @@ function normalizeDateTime(value) {
   return value;
 }
 
-// Loop through fields (skip ticket_id, attachments and reported_by)
+// Helper to make keys look nice
+function prettyKey(key) {
+  return key
+    .replace(/_/g, ' ')              // underscores → spaces
+    .replace(/\b\w/g, c => c.toUpperCase()); // capitalize each word
+}
+
+// Loop through fields (skip ticket_id, attachments, reported_by)
 for (const key of Object.keys(ticket)) {
   if (key !== 'ticket_id' && key !== 'attachments' && key !== 'reported_by') {
     const val = normalizeDateTime(ticket[key]);
-    doc.fontSize(12).text(`${key}: ${val}`);
+    doc.fontSize(12).text(`${prettyKey(key)}: ${val}`);
     doc.moveDown(0.5);
   }
 }
@@ -397,6 +404,7 @@ router.get('/export/all', (_, res) => {
 });
 
 export default router;
+
 
 
 
