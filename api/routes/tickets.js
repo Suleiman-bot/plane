@@ -237,13 +237,28 @@ router.get('/:id/download', (req, res) => {
     doc.fontSize(20).text(`Ticket ID: ${ticket.ticket_id}`, { underline: true });
     doc.moveDown();
 
-    // Loop through fields
-    for (const key of Object.keys(ticket)) {
-      if (key !== 'ticket_id' && key !== 'attachments') {
-        doc.fontSize(12).text(`${key}: ${ticket[key]}`);
-        doc.moveDown(0.5);
-      }
-    }
+// Helper: normalize datetime values
+function normalizeDateTime(value) {
+  if (!value) return value;
+
+  // Match format like "2025-09-11 08:35:22" or ISO-like strings
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?/);
+  if (match) {
+    return `${match[1]} ${match[2]}:${match[3]}`; // YYYY-MM-DD HH:MM
+  }
+
+  return value;
+}
+
+// Loop through fields
+for (const key of Object.keys(ticket)) {
+  if (key !== 'ticket_id' && key !== 'attachments') {
+    const val = normalizeDateTime(ticket[key]);
+    doc.fontSize(12).text(`${key}: ${val}`);
+    doc.moveDown(0.5);
+  }
+}
+
 
 // Attachments
 if (ticket.attachments) {
@@ -383,4 +398,5 @@ router.get('/export/all', (_, res) => {
 });
 
 export default router;
+
 
