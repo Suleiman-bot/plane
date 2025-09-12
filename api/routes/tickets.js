@@ -17,6 +17,18 @@ const formatDateTime = (input) => {
   return d.toISOString(); // ✅ always UTC with Z
 };
 
+const parseToISO = (input) => {
+  if (!input) return '';
+  // If already ISO with Z
+  if (typeof input === 'string' && input.endsWith('Z')) {
+    return input;
+  }
+  // If input is like "2025-09-12T09:00" (local naive)
+  const d = new Date(input);
+  if (isNaN(d)) return '';
+  return d.toISOString(); // normalize
+};
+
 
 const BUILDING_CODES = {
   LOS1: 'LOS1',
@@ -128,7 +140,7 @@ const row = [
   body.impacted || '',
   body.description || '',
   body.detectedBy || '',
-  formatDateTime(body.time_detected || ''),   // safe check
+  parseToISO(body.time_detected || ''),   // safe check
   body.root_cause || '',
   body.actions_taken || '',
   body.status || 'Open',
@@ -450,6 +462,7 @@ router.delete('/:id', (req, res) => {
 });
 
 export default router;
+
 
 
 
