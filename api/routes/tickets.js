@@ -14,13 +14,13 @@ const formatDateTime = (input) => {
   const d = input instanceof Date ? input : new Date(input);
   if (isNaN(d)) return '';
   const pad = (num, size = 2) => String(num).padStart(size, '0');
-  const year = d.getFullYear();
-  const month = pad(d.getMonth() + 1);
-  const day = pad(d.getDate());
-  const hours = pad(d.getHours());
-  const minutes = pad(d.getMinutes());
-  const seconds = pad(d.getSeconds());
-  const ms = pad(d.getMilliseconds(), 3);
+  const year = d.getUTCFullYear();
+  const month = pad(d.getUTCMonth() + 1);
+  const day = pad(d.getUTCDate());
+  const hours = pad(d.getUTCHours());
+  const minutes = pad(d.getUTCMinutes());
+  const seconds = pad(d.getUTCSeconds());
+  const ms = pad(d.getUTCMilliseconds(), 3);
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
 };
 
@@ -456,6 +456,7 @@ router.delete('/:id', (req, res) => {
 });
 
 export default router;
+
 
 
 
