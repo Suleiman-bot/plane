@@ -10,19 +10,13 @@ const isImage = (filename) => /\.(jpe?g|png|gif|bmp|webp)$/i.test(filename);
 const isPDF = (filename) => /\.pdf$/i.test(filename);
 
 // Format ISO string or Date object to "YYYY-MM-DD HH:mm:ss.SSS"
+// backend: utils.js or wherever formatDateTime is
 const formatDateTime = (input) => {
   const d = input instanceof Date ? input : new Date(input);
   if (isNaN(d)) return '';
-  const pad = (num, size = 2) => String(num).padStart(size, '0');
-  const year = d.getUTCFullYear();
-  const month = pad(d.getUTCMonth() + 1);
-  const day = pad(d.getUTCDate());
-  const hours = pad(d.getUTCHours());
-  const minutes = pad(d.getUTCMinutes());
-  const seconds = pad(d.getUTCSeconds());
-  const ms = pad(d.getUTCMilliseconds(), 3);
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`;
+  return d.toISOString(); // ✅ always UTC with Z
 };
+
 
 const BUILDING_CODES = {
   LOS1: 'LOS1',
@@ -456,6 +450,7 @@ router.delete('/:id', (req, res) => {
 });
 
 export default router;
+
 
 
 
