@@ -140,7 +140,7 @@ const row = [
   body.impacted || '',
   body.description || '',
   body.detectedBy || '',
-  parseToISO(body.time_detected || ''),   // safe check
+  body.time_detected || '',   // safe check
   body.root_cause || '',
   body.actions_taken || '',
   body.status || 'Open',
@@ -462,6 +462,7 @@ router.delete('/:id', (req, res) => {
 });
 
 export default router;
+
 
 
 
