@@ -1,4 +1,4 @@
-# /home/kasi/projects/ticketing-form/Dockerfile.dev
+# /projects/ticketing-form/Dockerfile.dev
 FROM node:20-alpine
 
 WORKDIR /app
@@ -18,3 +18,4 @@ ENV WDS_SOCKET_PORT=0
 
 EXPOSE 3000
 CMD ["npm", "start"]
+
