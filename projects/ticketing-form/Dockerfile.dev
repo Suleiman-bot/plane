@@ -1,0 +1,20 @@
+# /home/kasi/projects/ticketing-form/Dockerfile.dev
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install deps first (cache-friendly)
+COPY package*.json ./
+# Prefer npm ci if you have package-lock.json
+RUN npm ci --no-audit --no-fund || npm install
+
+# Copy the rest
+COPY . .
+
+# Enable reliable hot-reload when using bind mounts
+ENV CHOKIDAR_USEPOLLING=true
+# Avoid websocket port issues in some setups
+ENV WDS_SOCKET_PORT=0
+
+EXPOSE 3000
+CMD ["npm", "start"]

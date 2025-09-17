@@ -1,0 +1,33 @@
+/* src/LoginPage.css */
+.login-page {
+  height: 100vh;
+  display: flex;
+  justify-content: center;   /* center horizontally */
+  align-items: flex-start;   /* align items to the top instead of center */
+  background: url("/public/BG.jpeg") no-repeat center center;
+  background-size: cover;
+  background-position: center center; /* move image down (tweak % as needed) */
+  padding-top: 120px;  /* pushes the login box downwards */
+  overflow: hidden;       /* 🚫 hides scroll inside this container */
+  transform: scale(1.0);       /* zoom out */
+  transform-origin: center;    /* keep centered when scaling */
+}
+
+/* Make the login card slightly transparent */
+.login-box {
+  background: rgba(255, 255, 255, 0.8); /* translucent white */
+  border-radius: 12px;
+  padding: 2rem;
+  backdrop-filter: blur(6px); /* glass effect */
+}
+
+/* Style the Login heading */
+.login-box h3 {
+  font-weight: bold;
+  font-size: 1.8rem;
+  text-align: center;
+  color: #0d6efd; /* Bootstrap primary blue */
+  margin-bottom: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}

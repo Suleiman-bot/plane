@@ -1,0 +1,122 @@
+:root {
+  --bg: #ffffff;
+  --card-bg: #ffffff;
+  --text: #212529;
+  --muted: #6c757d;
+  --input-bg: #ffffff;
+  --input-border: #ced4da;
+  --primary: #0d6efd;
+  --button-text: #ffffff;
+  --shadow: 0 6px 18px rgba(16, 24, 40, 0.06);
+}
+
+/* Dark theme variables */
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --card-bg: #0f1724;
+  --text: #e6eef8;
+  --muted: #94a3b8;
+  --input-bg: #0b1220;
+  --input-border: #334155;
+  --primary: #2563eb;
+  --button-text: #ffffff;
+  --shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+}
+
+/* Global app-level rules */
+body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* Form container look */
+.app-form {
+  background: var(--card-bg);
+  padding: 1.25rem;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--input-border);
+}
+
+/* Bootstrap form controls override */
+.form-control,
+.form-select {
+  background: var(--input-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--input-border) !important;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.12) !important;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: var(--button-text) !important;
+}
+
+/* react-select overrides (using classNamePrefix="rs") */
+.rs__control {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+  min-height: 38px;
+}
+
+.rs__control--is-focused {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.12) !important;
+}
+
+.rs__single-value {
+  color: var(--text) !important;
+}
+
+.rs__menu {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--input-border);
+  box-shadow: var(--shadow);
+}
+
+.rs__option {
+  background: var(--card-bg) !important;
+  color: var(--text) !important;
+}
+
+.rs__option--is-focused {
+  background: rgba(13, 110, 253, 0.08) !important;
+}
+
+.rs__option--is-selected {
+  background: var(--primary) !important;
+  color: var(--button-text) !important;
+}
+
+.rs__multi-value {
+  background: rgba(13, 110, 253, 0.12) !important;
+}
+
+.rs__multi-value__label {
+  color: var(--text) !important;
+}
+
+.rs__multi-value__remove:hover {
+  background: var(--primary) !important;
+  color: var(--button-text) !important;
+}
+
+/* small tweaks */
+label {
+  color: var(--text) !important;
+}
+
+small.text-muted {
+  color: var(--muted) !important;
+}
